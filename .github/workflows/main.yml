@@ -1,39 +1,28 @@
-name: Deploy WordPress
+name: Upload WordPress App to S3
 
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
-  build-and-deploy:
+  s3-upload:
     runs-on: ubuntu-latest
-
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
 
     - name: Package WordPress Application
       run: |
-        tar -czvf wordpress_$(date +%F).tar.gz .
-        mkdir -p builds && mv wordpress_$(date +%F).tar.gz builds/
+        tar -czvf app_$(date +%F).tar.gz . --exclude='.git' --exclude='node_modules'
+        mkdir -p builds && mv app_$(date +%F).tar.gz builds/
 
     - name: Upload to S3
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ secrets.AWS_REGION }}
       run: |
-        aws s3 cp builds/ s3://yousef-app/ --recursive
-
-    - name: Deploy to EC2 Instances
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ secrets.AWS_REGION }}
-      run: |
-        aws ssm send-command \
-          --targets "Key=instanceIds,Values=<instance-id-1>,<instance-id-2>" \
-          --document-name "AWS-RunShellScript" \
-          --parameters commands="aws s3 cp s3://yousef-app/wordpress.tar.gz /tmp/wordpress.tar.gz && tar -xzf /tmp/wordpress.tar.gz -C /var/www/html" \
-          --comment "Deploy WordPress application"
+        aws s3 cp builds/ s3://yourname_app/ --recursive
+        aws s3api put-bucket-lifecycle-configuration --bucket yourname_app --region ${{ secrets.AWS_REGION }} --lifecycle-configuration file://lifecycle-config.json
