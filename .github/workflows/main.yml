@@ -1,12 +1,12 @@
-name: WordPress Deployment to S3 and Auto Scaling Group
+name: Deploy WordPress App
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
-  s3-upload:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +15,7 @@ jobs:
 
     - name: Package WordPress Application
       run: |
-        tar -czvf app_$(date +%F).tar.gz --exclude-vcs --exclude='.git' --exclude='node_modules' .
+        tar -czvf app_$(date +%F).tar.gz --exclude-vcs --exclude='.git' --exclude='node_modules' --exclude='wp-content/uploads/cache' --exclude='wp-content/uploads/sessions' --exclude='wp-content/uploads/locks' .
         mkdir -p builds && mv app_$(date +%F).tar.gz builds/
 
     - name: Upload to S3
@@ -31,10 +31,11 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # Add your private key
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
         INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-instances --query "AutoScalingInstances[].[InstanceId]" --output text --region ${{ secrets.AWS_REGION }})
         for instance_id in $INSTANCE_IDS; do
           echo "Deploying to instance $instance_id"
           ssh -i $SSH_PRIVATE_KEY ubuntu@$instance_id "aws s3 cp s3://yousef-app/app_$(date +%F).tar.gz /tmp/app.tar.gz && tar -xzf /tmp/app.tar.gz -C /var/www/html && systemctl restart apache2"
         done
+
