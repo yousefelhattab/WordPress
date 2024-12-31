@@ -3,7 +3,7 @@ name: Deploy WordPress App
 on:
   push:
     branches:
-      - master
+      - master  # Use 'master' branch for deployments
 
 jobs:
   build-and-deploy:
@@ -12,10 +12,12 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
+      with:
+        ref: master  # Ensure we're checking out the 'master' branch
 
     - name: Package WordPress Application
       run: |
-        tar -czvf app_$(date +%F).tar.gz --exclude-vcs --exclude='.git' --exclude='node_modules' --exclude='wp-content/uploads/cache' --exclude='wp-content/uploads/sessions' --exclude='wp-content/uploads/locks' .
+        tar -czvf app_$(date +%F).tar.gz --exclude-vcs --exclude='.git' --exclude='node_modules' --exclude='wp-content/uploads/cache' --exclude='wp-content/uploads/sessions' --exclude='wp-content/uploads/locks' --exclude='wp-settings.php' --exclude='xmlrpc.php' .
         mkdir -p builds && mv app_$(date +%F).tar.gz builds/
 
     - name: Upload to S3
@@ -38,4 +40,3 @@ jobs:
           echo "Deploying to instance $instance_id"
           ssh -i $SSH_PRIVATE_KEY ubuntu@$instance_id "aws s3 cp s3://yousef-app/app_$(date +%F).tar.gz /tmp/app.tar.gz && tar -xzf /tmp/app.tar.gz -C /var/www/html && systemctl restart apache2"
         done
-
