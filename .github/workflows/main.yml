@@ -20,8 +20,9 @@ jobs:
 
     - name: Package WordPress Application
       run: |
-        tar -czvf app_$(date +%F).tar.gz . --exclude='.git' --exclude='node_modules'
+        tar -czvf app_$(date +%F).tar.gz --exclude='.git' --exclude='node_modules' .
         mkdir -p builds && mv app_$(date +%F).tar.gz builds/
+
 
     - name: Upload to S3
       run: |
