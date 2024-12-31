@@ -1,4 +1,4 @@
-name: Upload WordPress App to S3
+name: WordPress Deployment to S3 and Auto Scaling Group
 
 on:
   push:
@@ -7,24 +7,34 @@ on:
 
 jobs:
   s3-upload:
-    runs-on: ubuntu-24.04  # Use Ubuntu 24.04
+    runs-on: ubuntu-latest
 
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
 
     - name: Package WordPress Application
       run: |
-        tar -czvf app_$(date +%F).tar.gz --exclude='.git' --exclude='node_modules' .
+        tar -czvf app_$(date +%F).tar.gz --exclude-vcs --exclude='.git' --exclude='node_modules' .
         mkdir -p builds && mv app_$(date +%F).tar.gz builds/
 
-
     - name: Upload to S3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
       run: |
-        aws s3 cp builds/ s3://yourname_app/ --recursive
-        aws s3api put-bucket-lifecycle-configuration --bucket yourname_app --region ${{ secrets.AWS_REGION }} --lifecycle-configuration file://lifecycle-config.json
+        aws s3 cp builds/ s3://yourname-app/ --recursive
+
+    - name: Deploy to Auto Scaling Group
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
+        aws ssm send-command \
+          --targets "Key=instanceIds,Values=<instance-id-1>,<instance-id-2>" \
+          --document-name "AWS-RunShellScript" \
+          --parameters commands="aws s3 cp s3://yourname-app/app_$(date +%F).tar.gz /tmp/app.tar.gz && tar -xzf /tmp/app.tar.gz -C /var/www/html && systemctl restart apache2" \
+          --comment "Deploy WordPress application" 
+
