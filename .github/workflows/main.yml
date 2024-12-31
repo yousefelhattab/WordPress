@@ -3,7 +3,7 @@ name: WordPress Deployment to S3 and Auto Scaling Group
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   s3-upload:
